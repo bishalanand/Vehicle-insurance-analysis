@@ -151,13 +151,14 @@ class DataTransformation:
             input_feature_train_final, target_feature_train_final = smt.fit_resample(
                 input_feature_train_arr, target_feature_train_df
             )
-            input_feature_test_final, target_feature_test_final = smt.fit_resample(
-                input_feature_test_arr, target_feature_test_df
-            )
+            # input_feature_test_final, target_feature_test_final = smt.fit_resample(
+            #     input_feature_test_arr, target_feature_test_df
+            # )
+            logging.info("Do not apply smooting on test data Because it help midel to know generalisation")
             logging.info("SMOTEENN applied to train-test df.")
 
             train_arr = np.c_[input_feature_train_final, np.array(target_feature_train_final)]
-            test_arr = np.c_[input_feature_test_final, np.array(target_feature_test_final)]
+            test_arr = np.c_[input_feature_test_arr, np.array(target_feature_test_df)]
             logging.info("feature-target concatenation done for train-test df.")
 
             save_object(self.data_transformation_config.transformed_object_file_path, preprocessor)
