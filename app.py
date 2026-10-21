@@ -1,73 +1,49 @@
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from uvicorn import run as app_run
 from pathlib import Path
-from typing import Optional
+import logging
+import pandas as pd
 
-# Importing constants and pipeline modules from the project
 from src.constants import APP_HOST, APP_PORT
 from src.pipline.prediction_pipeline import VehicleData, VehicleDataClassifier
 from src.pipline.training_pipeline import TrainPipeline
 
-
 BASE_DIR = Path(__file__).resolve().parent
 
-# Initialize FastAPI application
 app = FastAPI()
-
-# Mount the static directory
-app.mount(
-    "/static",
-    StaticFiles(directory=str(BASE_DIR / "static")),
-    name="static"
-)
-
-# Set up Jinja2 template engine
-templates = Jinja2Templates(
-    directory=str(BASE_DIR / "templates")
-)
-
-# Configure CORS
-origins = ["*"]
+app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
+templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+logging.basicConfig(level=logging.INFO)
 
 class DataForm:
-    """
-    DataForm class to handle and process incoming form data.
-    """
-
     def __init__(self, request: Request):
-        self.request: Request = request
-
-        self.Gender: Optional[int] = None
-        self.Age: Optional[int] = None
-        self.Driving_License: Optional[int] = None
-        self.Region_Code: Optional[float] = None
-        self.Previously_Insured: Optional[int] = None
-        self.Annual_Premium: Optional[float] = None
-        self.Policy_Sales_Channel: Optional[float] = None
-        self.Vintage: Optional[int] = None
-        self.Vehicle_Age_lt_1_Year: Optional[int] = None
-        self.Vehicle_Age_gt_2_Years: Optional[int] = None
-        self.Vehicle_Damage_Yes: Optional[int] = None
+        self.request = request
+        self.Gender = None
+        self.Age = None
+        self.Driving_License = None
+        self.Region_Code = None
+        self.Previously_Insured = None
+        self.Annual_Premium = None
+        self.Policy_Sales_Channel = None
+        self.Vintage = None
+        self.Vehicle_Age_lt_1_Year = None
+        self.Vehicle_Age_gt_2_Years = None
+        self.Vehicle_Damage_Yes = None
 
     async def get_vehicle_data(self):
-        """
-        Retrieve and assign incoming form data.
-        """
         form = await self.request.form()
-
         self.Gender = form.get("Gender")
         self.Age = form.get("Age")
         self.Driving_License = form.get("Driving_License")
@@ -81,105 +57,92 @@ class DataForm:
         self.Vehicle_Damage_Yes = form.get("Vehicle_Damage_Yes")
 
 
-# Route to render the main page
 @app.get("/", tags=["authentication"])
 async def index(request: Request):
-    """
-    Render the vehicle data input form.
-    """
     return templates.TemplateResponse(
         request=request,
         name="vehicledata.html",
-        context={
-            "context": "Rendering",
-            "status": None
-        }
+        context={"context": "Rendering", "status": None, "error": None},
     )
 
 
-# Route to trigger the model training process
 @app.get("/train")
 async def trainRouteClient():
-    """
-    Execute the model training pipeline.
-    """
     try:
         train_pipeline = TrainPipeline()
         train_pipeline.run_pipeline()
-
-        return Response(
-            content="Training successful!!!",
-            media_type="text/plain",
-            status_code=200
-        )
-
+        return {"status": "Training successful!!!"}
     except Exception as e:
-        return Response(
-            content=f"Error Occurred! {e}",
-            media_type="text/plain",
-            status_code=500
-        )
+        logging.exception("Training failed")
+        return {"status": False, "error": str(e)}
 
 
-# Route to handle form submission and make predictions
 @app.post("/")
 async def predictRouteClient(request: Request):
-    """
-    Receive vehicle form data and generate a prediction.
-    """
     try:
-        # Read form data
         form = DataForm(request)
         await form.get_vehicle_data()
 
-        # Create the vehicle data object
-        vehicle_data = VehicleData(
-            Gender=form.Gender,
-            Age=form.Age,
-            Driving_License=form.Driving_License,
-            Region_Code=form.Region_Code,
-            Previously_Insured=form.Previously_Insured,
-            Annual_Premium=form.Annual_Premium,
-            Policy_Sales_Channel=form.Policy_Sales_Channel,
-            Vintage=form.Vintage,
-            Vehicle_Age_lt_1_Year=form.Vehicle_Age_lt_1_Year,
-            Vehicle_Age_gt_2_Years=form.Vehicle_Age_gt_2_Years,
-            Vehicle_Damage_Yes=form.Vehicle_Damage_Yes
-        )
+        payload = {
+            "Gender": int(form.Gender),
+            "Age": int(form.Age),
+            "Driving_License": int(form.Driving_License),
+            "Region_Code": int(form.Region_Code),
+            "Previously_Insured": int(form.Previously_Insured),
+            "Annual_Premium": float(form.Annual_Premium),
+            "Policy_Sales_Channel": float(form.Policy_Sales_Channel),
+            "Vintage": int(form.Vintage),
+            "Vehicle_Age_lt_1_Year": int(form.Vehicle_Age_lt_1_Year),
+            "Vehicle_Age_gt_2_Years": int(form.Vehicle_Age_gt_2_Years),
+            "Vehicle_Damage_Yes": int(form.Vehicle_Damage_Yes),
+        }
 
-        # Convert form data into a DataFrame
-        vehicle_df = vehicle_data.get_vehicle_input_data_frame()
+        vehicle_df = pd.DataFrame([payload])
 
-        # Initialize the prediction pipeline
+        expected_columns = [
+            "Gender",
+            "Age",
+            "Driving_License",
+            "Region_Code",
+            "Previously_Insured",
+            "Annual_Premium",
+            "Policy_Sales_Channel",
+            "Vintage",
+            "Vehicle_Age_lt_1_Year",
+            "Vehicle_Age_gt_2_Years",
+            "Vehicle_Damage_Yes",
+        ]
+
+        vehicle_df = vehicle_df[expected_columns]
+
         model_predictor = VehicleDataClassifier()
-
-        # Generate prediction
         value = model_predictor.predict(dataframe=vehicle_df)[0]
+        prediction = int(value)
+        status = "Response-Yes" if prediction == 1 else "Response-No"
 
-        # Interpret the prediction
-        status = "Response-Yes" if value == 1 else "Response-No"
-
-        # Render the page with the prediction result
         return templates.TemplateResponse(
             request=request,
             name="vehicledata.html",
             context={
                 "context": "Rendering",
-                "status": status
-            }
+                "status": status,
+                "error": None,
+            },
         )
 
     except Exception as e:
-        return {
-            "status": False,
-            "error": str(e)
-        }
+        logging.exception("Prediction failed")
+        return templates.TemplateResponse(
+            request=request,
+            name="vehicledata.html",
+            context={
+                "context": "Rendering",
+                "status": None,
+                "error": f"Prediction failed: {e}",
+            },
+            status_code=400,
+        )
 
 
-# Main entry point
 if __name__ == "__main__":
-    app_run(
-        app,
-        host=APP_HOST,
-        port=APP_PORT
-    )
+    app_run(app, host=APP_HOST, port=APP_PORT)

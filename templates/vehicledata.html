@@ -1,10 +1,10 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vehicle Insurance Prediction</title>
-    <!-- Corrected the CSS path -->
     <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
@@ -36,10 +36,10 @@
             <label for="Vintage">Vintage:</label>
             <input type="number" id="Vintage" name="Vintage" required>
 
-            <label for="Vehicle_Age_lt_1_Year">Vehicle Age < 1 Year (0: No, 1: Yes):</label>
+            <label for="Vehicle_Age_lt_1_Year">Vehicle Age &lt; 1 Year (0: No, 1: Yes):</label>
             <input type="number" id="Vehicle_Age_lt_1_Year" name="Vehicle_Age_lt_1_Year" min="0" max="1" required>
 
-            <label for="Vehicle_Age_gt_2_Years">Vehicle Age > 2 Years (0: No, 1: Yes):</label>
+            <label for="Vehicle_Age_gt_2_Years">Vehicle Age &gt; 2 Years (0: No, 1: Yes):</label>
             <input type="number" id="Vehicle_Age_gt_2_Years" name="Vehicle_Age_gt_2_Years" min="0" max="1" required>
 
             <label for="Vehicle_Damage_Yes">Vehicle Damage (0: No, 1: Yes):</label>
@@ -52,9 +52,15 @@
             <button type="submit" class="train-button">Train Model</button>
         </form>
 
-        {% if context %}
+        {% if status %}
             <div class="result">
-                <h2>Result: {{ context }}</h2>
+                <h2>Prediction: {{ status }}</h2>
+            </div>
+        {% endif %}
+
+        {% if error %}
+            <div class="error">
+                <p>{{ error }}</p>
             </div>
         {% endif %}
     </div>

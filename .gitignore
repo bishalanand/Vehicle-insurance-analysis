@@ -221,3 +221,13 @@ __marimo__/
 
 /artifact
 /logs
+
+#for Virtual Environment
+vehicle/
+.venv/
+venv/
+
+# Environment secrets
+.env
+.env.*
+!.env.example
